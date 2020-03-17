@@ -31,13 +31,14 @@ double GetCounter()
 
 void radix_sort(int v[],int nr)
 {
-    vector <int> bucket[2][10]; // Avem o "dimensiune" deja ca vetor
+    int mask=(1<<8)-1;
+    int pas=0;
+    vector <int> bucket[256]; // Avem o "dimensiune" deja ca vetor
                                 // Folosim un vector auxiliar pt a introduce
                                 // numerele sortate
     int maxi=0,cifre_max=0;
     for(int i=0;i<nr;i++) // Pas 1: introducem numerele intr-un vector si cautam si nr maxim
         {
-            bucket[0][v[i]%10].push_back(v[i]); // Prima introducere
             if(v[i]>maxi)
                 maxi=v[i];
         }
@@ -45,25 +46,22 @@ void radix_sort(int v[],int nr)
     while(maxi!=0) // Pas 2: gasim numarul de cifre ale numarului maxim
     {
         cifre_max++;
-        maxi/=10;
+        maxi>>=8;
     }
-
-    int p=10;
-    int pas=0; // Pas 3: pt vector auxiliar care se interschimba cu vector principal
+     // Pas 3: pt vector auxiliar care se interschimba cu vector principal
     for(int k=0;k<cifre_max;k++) // Trebuie sa facem maxim cifre_max sortari
     {
-        for(int i=0;i<10;i++) // Bucket-ul e de 10
-            for(int j=0;j<bucket[pas][i].size();j++)
-                bucket[1-pas][bucket[pas][i][j]/p%10].push_back(bucket[pas][i][j]);
-        for(int i=0;i<10;i++)
-            bucket[pas][i].clear();
-        pas=1-pas;
-        p*=10;
+        for(int i=0;i<nr;i++) // Bucket-ul e de 10
+            bucket[(v[i]>>pas) & mask].push_back(v[i]);
+        nr=0;
+        for(int i=0;i<256;i++)
+        {
+            for(int j=0;j<bucket[i].size();j++)
+                v[nr++]=bucket[i][j];
+            bucket[i].clear();
+        }
+        pas+=8;
     }
-    int poz=0;
-    for(int i=0;i<10;i++)
-        for(int j=0;j<bucket[pas][i].size();j++)
-            v[poz++]=bucket[pas][i][j];
 
 }
 
@@ -98,7 +96,6 @@ while(sem==0)
      v[i]=v[i+1];
      v[i+1]=aux;
     }
-
 }
 
 }
@@ -142,35 +139,47 @@ void mrg(int v[],int nr)
     merge_sort(v,0,nr-1);
 }
 
-int partitie(int v[],int inceput,int sfarsit)
+int returnare_poz_cool(int v[],int start,int stop)
 {
-    int pivot=v[inceput],retine=inceput;
-    while(inceput<sfarsit)
-    {
-        while(v[inceput]<=pivot)
-            inceput++;
-        while(v[sfarsit]>pivot)
-            sfarsit--;
-        if (inceput<sfarsit)
-                swap(v[inceput],v[sfarsit]);
-    }
-    swap(v[retine],v[sfarsit]);
-    return sfarsit;
+    int poz1=rand()%(stop-start+1)+start;
+    int poz2=rand()%(stop-start+1)+start;
+    int poz3=rand()%(stop-start+1)+start;
+    if ((poz1<=poz2 && poz2<=poz3) || (poz1>=poz2 && poz2>=poz3))
+        return poz2;
+    else if ((poz2<=poz1 && poz1<=poz3)||(poz2>=poz1 && poz1>=poz3))
+        return poz1;
+    else
+        return poz3;
+
 }
 
-void quick_sort(int v[],int st,int dr)
+void quick_sort_cool(int v[],int start,int stop)
 {
-    if (st<dr)
+    int poz_pivot=returnare_poz_cool(v,start,stop);
+    int pivot=v[poz_pivot];
+    int i=start,j=stop,aux;
+    while(i<=j)
     {
-        int poz_pivot=partitie(v,st,dr); //trebuie sa aleg pivotul altfel
-        quick_sort(v,st,poz_pivot-1);
-        quick_sort(v,poz_pivot+1,dr);
+        while(v[i]<pivot)
+            i++;
+        while(v[j]>pivot)
+            j--;
+        if (i<=j)
+        {
+            swap(v[i],v[j]);
+            i++;
+            j--;
+        }
     }
+    if (start<j)
+        quick_sort_cool(v,start,j);
+    if (i<stop)
+        quick_sort_cool(v,i,stop);
 }
 
 void qck(int v[],int nr)
 {
-    quick_sort(v,0,nr-1);
+    quick_sort_cool(v,0,nr-1);
 }
 
 void analyze(void (*func)(int v[],int nr),int ve[],int nre)
@@ -181,13 +190,19 @@ void analyze(void (*func)(int v[],int nr),int ve[],int nre)
         vAux[nrAux]=ve[nrAux];
         nrAux++;
     }
+    int vProv[100000],nrProv=0;
+    while(nrProv<nre)
+    {
+        vProv[nrProv]=ve[nrProv];
+        nrProv++;
+    }
     StartCounter();
-    func(ve,nre);
+    func(vProv,nrProv);
     double timp=GetCounter();
     sort(vAux,(vAux+nre));  // Sortam cu sortare nativa sa ne asiguram ca este bine sortat
      int ok=1;
      for(int i=0;i<=nre;i++)
-       if (ve[i]!=vAux[i]) // Pasul de verificare daca vectorul e bine sortat
+       if (vProv[i]!=vAux[i]) // Pasul de verificare daca vectorul e bine sortat
             ok=0;
     if (ok==1)
     std::cout << "Succes in " << timp << " microsecunde."<<'\n';
@@ -195,10 +210,6 @@ void analyze(void (*func)(int v[],int nr),int ve[],int nre)
     cout << "!!! Ceva nu a mers bine !!!"<<'\n';
 }
 
-void special_analyze()
-{
-
-}
 
 int main()
 {
