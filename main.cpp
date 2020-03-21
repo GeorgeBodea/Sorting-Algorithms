@@ -1,11 +1,10 @@
-#include <iostream>
+//#include <iostream>
 #include <vector>
 #include <fstream>
-#include <chrono>
 #include <algorithm>
 #include <windows.h>
 using namespace std;
-
+ofstream cout("date.out");
 /// Secvente aduse pentru calcularea timpului
 /// Timpul in microsecunde
 double PCFreq = 0.0;
@@ -29,29 +28,64 @@ double GetCounter()
     return double(li.QuadPart-CounterStart)/PCFreq;
 }
 
-void radix_sort(int v[],int nr)
+void radix_sort_simpla(int v[],int nr)
 {
-    int mask=(1<<8)-1;
-    int pas=0;
-    vector <int> bucket[256]; // Avem o "dimensiune" deja ca vetor
-                                // Folosim un vector auxiliar pt a introduce
-                                // numerele sortate
+    vector <int> bucket[2][10];
     int maxi=0,cifre_max=0;
     for(int i=0;i<nr;i++) // Pas 1: introducem numerele intr-un vector si cautam si nr maxim
-        {
-            if(v[i]>maxi)
-                maxi=v[i];
-        }
+    {
+        bucket[0][v[i]%10].push_back(v[i]); // Prima introducere
+        if(v[i]>maxi)
+            maxi=v[i];
+    }
 
     while(maxi!=0) // Pas 2: gasim numarul de cifre ale numarului maxim
     {
         cifre_max++;
-        maxi>>=8;
+        maxi/=10;
+
     }
+    int p=10;
+    int pas=0; // Pas 3: pt vector auxiliar care se interschimba cu vector principal
      // Pas 3: pt vector auxiliar care se interschimba cu vector principal
     for(int k=0;k<cifre_max;k++) // Trebuie sa facem maxim cifre_max sortari
     {
-        for(int i=0;i<nr;i++) // Bucket-ul e de 10
+        for(int i=0;i<10;i++) // Bucket-ul e de 10
+            for(int j=0;j<bucket[pas][i].size();j++)
+                bucket[1-pas][bucket[pas][i][j]/p%10].push_back(bucket[pas][i][j]);
+        for(int i=0;i<10;i++)
+            bucket[pas][i].clear();
+        pas=1-pas;
+        p*=10;
+    }
+  int poz=0;
+    for(int i=0;i<10;i++)
+        for(int j=0;j<bucket[pas][i].size();j++)
+            v[poz++]=bucket[pas][i][j];
+}
+
+
+
+void radix_sort(int v[],int nr)
+{
+    int mask=(1<<8)-1;
+    int pas=0;
+    vector <int> bucket [256];
+    int maxi=0,cifre_max=0;
+    for(int i=0; i<nr; i++)
+    {
+        if(v[i]>maxi)
+            maxi=v[i];
+    }
+    while(maxi!=0)
+    {
+        cifre_max++;
+        maxi>>=8;
+    }
+
+    for(int k=0;k<cifre_max;k++)
+    {
+        for(int i=0;i<nr;i++)
             bucket[(v[i]>>pas) & mask].push_back(v[i]);
         nr=0;
         for(int i=0;i<256;i++)
@@ -164,10 +198,10 @@ void quick_sort_cool(int v[],int start,int stop)
             i++;
         while(v[j]>pivot)
             j--;
-        if (i<=j)
+            if (i<=j)
         {
             swap(v[i],v[j]);
-            i++;
+            i++; // Trebuie sa avansam, intrucat daca suntem la pivot ramanem pe loc
             j--;
         }
     }
@@ -191,7 +225,7 @@ void analyze(void (*func)(int v[],int nr),int ve[],int nre)
         nrAux++;
     }
     int vProv[100000],nrProv=0;
-    while(nrProv<nre)
+    while(nrProv<nre)  // Am copiat vetorul principal intr-un al doilea vector pentru a-l sorta cu fucntia nativa sort
     {
         vProv[nrProv]=ve[nrProv];
         nrProv++;
@@ -205,7 +239,7 @@ void analyze(void (*func)(int v[],int nr),int ve[],int nre)
        if (vProv[i]!=vAux[i]) // Pasul de verificare daca vectorul e bine sortat
             ok=0;
     if (ok==1)
-    std::cout << "Succes in " << timp << " microsecunde."<<'\n';
+    cout << "Succes in " << timp << " microsecunde."<<'\n';
     else
     cout << "!!! Ceva nu a mers bine !!!"<<'\n';
 }
@@ -214,14 +248,18 @@ void analyze(void (*func)(int v[],int nr),int ve[],int nre)
 int main()
 {
     int v[100000];
-    int nr=0,aux,mx=0,nrFisiere=4;
+    int nr,aux,mx;
     vector<string> numeFisiere;
     numeFisiere.push_back("PutineMici.txt");
+    numeFisiere.push_back("PutineMixt.txt");
     numeFisiere.push_back("PutineMari.txt");
     numeFisiere.push_back("MulteMici.txt");
+    numeFisiere.push_back("MulteMixt.txt");
     numeFisiere.push_back("MulteMari.txt");
-    for(int i=0;i<nrFisiere;i++)
+    for(int i=0;i<numeFisiere.size();i++)
     {
+    nr=0;
+    mx=0;
     cout<<numeFisiere[i]<<'\n';
     ifstream f(numeFisiere[i]);
     while(f>>aux)
@@ -233,10 +271,11 @@ int main()
         nr++;
     }
 
-    if (nr<25000) {cout<<"Bubble: "; analyze(bubble_sort,v,nr);}
+    if (nr<10000) {cout<<"Bubble: "; analyze(bubble_sort,v,nr);}
     else cout<<"Fara bubbleSort"<<'\n';
     if (mx<1000000) {cout<<"Counting: "; analyze(countingSort,v,nr);}
     else cout<<"Fara countingSort"<<'\n';
+    cout<<"RadixSimplu: "; analyze(radix_sort_simpla,v,nr);
     cout<<"Radix: "; analyze(radix_sort,v,nr);
     cout<<"Quick: "; analyze(qck,v,nr);
     cout<<"Merge: "; analyze(mrg,v,nr);
@@ -251,8 +290,11 @@ int main()
     cout<<'\n';
     f.close();
     }
-// MulteMici 60.000 de nr cuprinse intre 1 si 100
-// MulteMari 30.000 de nr cuprinse intre 1 si 100.000.000
 
+// PutineMari 1.000 de nr cuprinse intre 0 si 10.000.000
+// PutineMixt 100 de nr cuprinse intre 0 si 100.000 si 100 de nr cuprinse intre 0 si 100
+// MulteMici 60.000 de nr cuprinse intre 0 si 100
+// MulteMixt 5.000 intre 0 si 10.000, dupa 10.000 intre 0 si 1.000, dupa 100 intre 0 si 1.000.000
+// MulteMari 30.000 de nr cuprinse intre 0 si 10.000.000
     return 0;
 }
